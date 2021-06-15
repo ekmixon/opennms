@@ -125,6 +125,33 @@ include::docker/initialize.adoc[]
 endif::[]
 ====
 
+== Receive SNMP Traps/Informs
+
+OpenNMS {page-component-title} core lets you receive and process SNMP Traps/Informs out of the box.
+The OpenNMS {page-component-title} core services run as an unprivileged user and can't bind on port numbers < 1024 without escalated privileges.
+For this reason, the default port for the SNMP Trap/Inform listener is set to port number 10162/udp instead of the IANA registered port number 162/udp.
+The following example shows how to configure the local firewall daemon to forward port 162/udp to 10162/udp.
+
+TIP: If you need SNMP Trap listener on port 162/udp directly, you can add the Linux `CAP_NET_BIND_SERVICE` capability to the Java binary using `setcap`.
+     Be aware: this method allows any Java program executed on your system to bind to privileged ports < 1024.
+
+[{tabs}]
+====
+CentOS/RHEL 7/8::
++
+--
+include::centos-rhel/firewall-core.adoc[]
+--
+
+ifeval::["{page-component-title}" == "Horizon"]
+Debian/Ubuntu::
++
+--
+include::debian-ubuntu/firewall-core.adoc[]
+--
+endif::[]
+====
+
 == First login
 
 After you start the {page-component-title} Core services, access the web application at +
