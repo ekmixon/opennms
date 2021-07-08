@@ -1,8 +1,8 @@
 /*******************************************************************************
  * This file is part of OpenNMS(R).
  *
- * Copyright (C) 2020 The OpenNMS Group, Inc.
- * OpenNMS(R) is Copyright (C) 1999-2020 The OpenNMS Group, Inc.
+ * Copyright (C) 2020-2021 The OpenNMS Group, Inc.
+ * OpenNMS(R) is Copyright (C) 1999-2021 The OpenNMS Group, Inc.
  *
  * OpenNMS(R) is a registered trademark of The OpenNMS Group, Inc.
  *
@@ -38,11 +38,14 @@ import org.opennms.core.test.MockLogAppender;
 import org.opennms.core.test.OpenNMSJUnit4ClassRunner;
 import org.opennms.core.test.db.annotations.JUnitTemporaryDatabase;
 import org.opennms.core.test.rest.AbstractSpringJerseyRestTestCase;
+import org.opennms.netmgt.dao.api.NodeDao;
 import org.opennms.test.JUnitConfigurationEnvironment;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.web.WebAppConfiguration;
+import org.springframework.transaction.annotation.Transactional;
 
 @RunWith(OpenNMSJUnit4ClassRunner.class)
 @WebAppConfiguration
@@ -63,6 +66,9 @@ import org.springframework.test.context.web.WebAppConfiguration;
 public class IpInterfaceRestServiceIT extends AbstractSpringJerseyRestTestCase {
     private static final Logger LOG = LoggerFactory.getLogger(IpInterfaceRestServiceIT.class);
 
+    @Autowired
+    private NodeDao m_nodeDao;
+
     public IpInterfaceRestServiceIT() {
         super(CXF_REST_V2_CONTEXT_PATH);
     }
@@ -72,17 +78,24 @@ public class IpInterfaceRestServiceIT extends AbstractSpringJerseyRestTestCase {
         MockLogAppender.setupLogging(true, "DEBUG");
     }
 
+    @Override
+    protected void afterServletDestroy() throws Exception {
+        super.afterServletDestroy();
+        m_nodeDao.clear();
+        m_nodeDao.flush();
+    }
+
     @Test
     @JUnitTemporaryDatabase
+    @Transactional
     public void testFiqlSearch() throws Exception {
-        // Add a node with an IP interface
-        createNode(201);
-        createIpInterface();
+        createSnmpInterface();
 
         String url = "/ipinterfaces";
 
         LOG.warn(sendRequest(GET, url, parseParamData("_s=ipAddress==10.10.10.10"), 200));
         LOG.warn(sendRequest(GET, url, parseParamData("_s=node.label==*1"), 200));
+        LOG.warn(sendRequest(GET, url, parseParamData("_s=isSnmpPrimary==P"), 200));
     }
 
     @Test
