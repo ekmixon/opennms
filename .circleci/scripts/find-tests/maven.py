@@ -10,7 +10,7 @@ class MavenIdentifier(object):
         self.artifact_id = json_obj['artifactId']
         self.group_id = json_obj['groupId']
         self.version = json_obj['version']
-        self.key = "%s:%s:%s" % (self.group_id, self.artifact_id, self.version)
+        self.key = f"{self.group_id}:{self.artifact_id}:{self.version}"
 
     def matches(self, module):
         return self.artifact_id == module.artifact_id \
@@ -35,8 +35,8 @@ class JUnitTest(object):
         # We want to take the last part after src/*/java/(*.)\. and replace the forward slashes with dots
         match = re.search(r".*[\/\\]src[\/\\](main|test)[\/\\]java[\/\\](.*).java", filename)
         if match is None:
-            raise Exception("Failed to match: " + filename)
-        return re.sub(r'[\/\\]', '.', match.group(2))
+            raise Exception(f"Failed to match: {filename}")
+        return re.sub(r'[\/\\]', '.', match[2])
 
 
 class MavenModule(MavenIdentifier):
@@ -57,10 +57,7 @@ class MavenModule(MavenIdentifier):
         """ Returns True if this module depends on the given module, False otherwise
             We do not consider transitive, only direct dependencies when performing this check.
         """
-        for dep in self.dependencies:
-            if dep.matches(module):
-                return True
-        return False
+        return any(dep.matches(module) for dep in self.dependencies)
 
     def has_tests(self):
         """ Returns True is this module contains one or more tests, False otherwise
@@ -69,11 +66,20 @@ class MavenModule(MavenIdentifier):
         return len(self.find_tests()) > 0
 
     def find_tests(self):
-        tests = []
-        for test_file in glob.iglob(self.path + '/src/**/test/java/**/*Test.java', recursive=True):
-            tests.append(JUnitTest(self, test_file))
-        for test_file in glob.iglob(self.path + '/src/**/test/java/**/*IT.java', recursive=True):
-            tests.append(JUnitTest(self, test_file, is_integration_test=True))
+        tests = [
+            JUnitTest(self, test_file)
+            for test_file in glob.iglob(
+                f'{self.path}/src/**/test/java/**/*Test.java', recursive=True
+            )
+        ]
+
+        tests.extend(
+            JUnitTest(self, test_file, is_integration_test=True)
+            for test_file in glob.iglob(
+                f'{self.path}/src/**/test/java/**/*IT.java', recursive=True
+            )
+        )
+
         return tests
 
 
@@ -151,7 +157,7 @@ class MavenProject(object):
 
             if module is None:
                 # No module matched
-                print("No module match for " + file)
+                print(f"No module match for {file}")
 
         return modules_with_changes
 
@@ -164,10 +170,10 @@ class MavenProject(object):
                 all_dep_users.update(dep_users)
 
         # Now filter out the modules that we already know we need
-        new_dep_users = list([m for m in all_dep_users if not (m in users)])
+        new_dep_users = [m for m in all_dep_users if m not in users]
 
         # If we have no new users, we're done
-        if len(new_dep_users) < 1:
+        if not new_dep_users:
             return
 
         # Add the new users to the tracking set

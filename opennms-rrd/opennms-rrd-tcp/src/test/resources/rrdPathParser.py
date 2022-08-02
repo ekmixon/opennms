@@ -11,10 +11,10 @@ import xml.dom.minidom
 
 # Edit these constants to match your installation if necessary
 FILE_SEPARATOR = '/'
-OPENNMS_SHARE_DIR = FILE_SEPARATOR + 'var' + FILE_SEPARATOR + 'opennms'
+OPENNMS_SHARE_DIR = f'{FILE_SEPARATOR}var{FILE_SEPARATOR}opennms'
 RRD_FILE_EXTENSION = '.jrb'
 OPENNMS_REST_HOST = 'http://127.0.0.1:8980/'
-OPENNMS_REST_URL = OPENNMS_REST_HOST + 'opennms/rest'
+OPENNMS_REST_URL = f'{OPENNMS_REST_HOST}opennms/rest'
 OPENNMS_REST_USER = 'admin'
 OPENNMS_REST_PASSWORD = 'admin'
 
@@ -24,51 +24,51 @@ def configureRrdPaths(rrdDir):
 
 # Parse an RRD file path into metadata about the RRD datasources
 def parseRrdPath(path):
+    if not (
+        pathMatch := re.match(
+            f'^{OPENNMS_SHARE_DIR}{FILE_SEPARATOR}rrd{FILE_SEPARATOR}(.*){RRD_FILE_EXTENSION}$',
+            path,
+        )
+    ):
+        raise f"Path does not match expected format: {path}"
+        # Strip off the directory prefix and file extension
+    path = pathMatch[1]
+
     # This dict object will contain a list of key-value pairs that give
     # extra metadata about the RRD from the RRD path, including node and
     # interface-level information
     retval = {}
-    # print "Expected regex: " + '^' + OPENNMS_SHARE_DIR + FILE_SEPARATOR + 'rrd' + FILE_SEPARATOR + '(.*)' + RRD_FILE_EXTENSION + '$'
-    pathMatch = re.match('^' + OPENNMS_SHARE_DIR + FILE_SEPARATOR + 'rrd' + FILE_SEPARATOR + '(.*)' + RRD_FILE_EXTENSION + '$', path)
-    if (pathMatch):
-        # Strip off the directory prefix and file extension
-        path = pathMatch.group(1)
-
-        if re.match('^response', path):
+    if re.match('^response', path):
             # Service response time
-            path = re.match('^response' + FILE_SEPARATOR + '(.*)$', path).group(1)
-            pathElements = path.split(FILE_SEPARATOR)
-            if (len(pathElements) == 2):
-                retval['interface.ipAddress'] = pathElements[0]
+        path = re.match(f'^response{FILE_SEPARATOR}(.*)$', path)[1]
+        pathElements = path.split(FILE_SEPARATOR)
+        if len(pathElements) != 2:
+            raise f"Unexpected response time path: {path}"
+        retval['interface.ipAddress'] = pathElements[0]
                 # TODO Use REST to fetch more info about IP address
-                retval['metric.label'] = pathElements[1] + 'ResponseTime'
-            else:
-                raise "Unexpected response time path: " + path
-        elif re.match('^snmp', path):
+        retval['metric.label'] = f'{pathElements[1]}ResponseTime'
+    elif re.match('^snmp', path):
             # SNMP metric
-            path = re.match('^snmp' + FILE_SEPARATOR + '(.*)$', path).group(1)
-            pathElements = re.split(FILE_SEPARATOR, path)
+        path = re.match(f'^snmp{FILE_SEPARATOR}(.*)$', path)[1]
+        pathElements = re.split(FILE_SEPARATOR, path)
             # Interface-specific metric
-            if (len(pathElements) == 3):
-                retval['node.id'] = pathElements[0]
-                # Use REST to fetch more info about the node
-                fetchNode(retval['node.id'], retval)
-                interface = pathElements[1]
-                retval['interface.label'] = split('-', interface)[0]
-                retval['interface.macAddress'] = split('-', interface)[1]
-                # TODO Use REST to fetch more info about the interface
-                retval['metric.label'] = pathElements[2]
-            # Node-level metric
-            elif (len(pathElements) == 2):
-                retval['node.id'] = pathElements[0]
-                # Use REST to fetch more info about the node
-                fetchNode(retval['node.id'], retval)
-                retval['metric.label'] = pathElements[1]
-            else:
-                raise "Unexpected SNMP path: " + path
-        return retval
-    else:
-        raise "Path does not match expected format: " + path
+        if (len(pathElements) == 3):
+            retval['node.id'] = pathElements[0]
+            # Use REST to fetch more info about the node
+            fetchNode(retval['node.id'], retval)
+            interface = pathElements[1]
+            retval['interface.label'] = split('-', interface)[0]
+            retval['interface.macAddress'] = split('-', interface)[1]
+            # TODO Use REST to fetch more info about the interface
+            retval['metric.label'] = pathElements[2]
+        elif (len(pathElements) == 2):
+            retval['node.id'] = pathElements[0]
+            # Use REST to fetch more info about the node
+            fetchNode(retval['node.id'], retval)
+            retval['metric.label'] = pathElements[1]
+        else:
+            raise f"Unexpected SNMP path: {path}"
+    return retval
 
 def fetchNode(id, attributeDict):
     # TODO Add parameter checking
@@ -78,7 +78,7 @@ def fetchNode(id, attributeDict):
     opener = urllib2.build_opener(authHandler)
     urllib2.install_opener(opener)
     #print "Target URL: " + OPENNMS_REST_URL + '/nodes/' + id
-    response = urllib2.urlopen(OPENNMS_REST_URL + '/nodes/' + id)
+    response = urllib2.urlopen(f'{OPENNMS_REST_URL}/nodes/{id}')
     nodeXml = xml.dom.minidom.parse(response)
     node = nodeXml.documentElement
     # Append attributes from the REST response to the attributeDict

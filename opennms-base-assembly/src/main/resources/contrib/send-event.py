@@ -55,8 +55,8 @@ class Event:
 
 def send_event(event):
     r = urllib2.Request("http://localhost:8980/opennms/rest/events", data=event.to_xml(), headers={'Content-Type': 'application/xml'})
-    b64 = base64.encodestring("{}:{}".format("admin", "admin")).rstrip()
-    r.add_header("Authorization", "Basic {}".format(b64))
+    b64 = base64.encodestring('admin:admin').rstrip()
+    r.add_header("Authorization", f"Basic {b64}")
     u = urllib2.urlopen(r)
     response = u.read()
 

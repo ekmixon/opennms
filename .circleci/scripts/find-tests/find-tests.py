@@ -9,12 +9,12 @@ from maven import MavenProject
 
 def load_maven_project(maven_project_root):
     if not os.path.isfile(os.path.join(maven_project_root, "pom.xml")):
-        raise Exception("Invalid Maven project root: " + maven_project_root)
+        raise Exception(f"Invalid Maven project root: {maven_project_root}")
     os.chdir(maven_project_root)
 
     structure_graph_file = os.path.join(maven_project_root, 'target/structure-graph.json')
     if not os.path.isfile(structure_graph_file):
-        raise Exception("Cannot find structure graph at: " + structure_graph_file)
+        raise Exception(f"Cannot find structure graph at: {structure_graph_file}")
 
     return MavenProject.load(structure_graph_file)
 
@@ -34,9 +34,9 @@ def generate_test_lists(maven_project_root, changes_only=True, unit_test_output=
     print("Maven project contains %d modules." % len(project.modules))
 
     current_branch = get_current_branch()
-    print("Current branch: %s" % current_branch)
+    print(f"Current branch: {current_branch}")
     parent_branch = get_parent_branch(maven_project_root)
-    print("Parent branch: %s" % parent_branch)
+    print(f"Parent branch: {parent_branch}")
 
     if current_branch != parent_branch and changes_only:
         files_changed = get_changed_files(maven_project_root)
@@ -59,11 +59,7 @@ def generate_test_lists(maven_project_root, changes_only=True, unit_test_output=
     for module_to_consider in modules_to_consider:
         print(module_to_consider)
 
-    # Open our file handles
-    unit_file = None
-    if unit_test_output is not None:
-        unit_file = open(unit_test_output, 'w')
-
+    unit_file = None if unit_test_output is None else open(unit_test_output, 'w')
     itest_file = None
     if integration_test_output is not None:
         itest_file = open(integration_test_output, 'w')
@@ -75,12 +71,12 @@ def generate_test_lists(maven_project_root, changes_only=True, unit_test_output=
             for test in m.find_tests():
                 print("\t%s - %s (%s)" % (test.file, test.classname, "Failsafe" if test.is_integration_test else "Surefire"))
 
-                if not test.is_integration_test:
-                    if unit_file:
-                        unit_file.write("%s\n" % test.classname)
-                else:
+                if test.is_integration_test:
                     if itest_file:
                         itest_file.write("%s\n" % test.classname)
+
+                elif unit_file:
+                    unit_file.write("%s\n" % test.classname)
 
 
 def generate_test_modules(maven_project_root, test_class_names, output_file):
